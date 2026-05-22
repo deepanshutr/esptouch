@@ -83,3 +83,28 @@ def test_encode_rejects_bad_bssid() -> None:
 def test_encode_rejects_bad_ip() -> None:
     with pytest.raises(ValueError, match="ip"):
         encode_packets("MyWiFi", "secret123", "aabbccddeeff", "999.999.999.999")
+
+
+def test_datum_header_round_trips() -> None:
+    """The datum header fields must be recoverable from the built buffer."""
+    from esptouch.encoder import _build_datum, crc8
+
+    ssid, password = "HomeNet", "p@ssw0rd!"
+    bssid = "aabbccddeeff"
+    datum = _build_datum(ssid, password, bssid, "192.168.1.42")
+
+    total_len, password_len, ssid_crc, bssid_crc = datum[0], datum[1], datum[2], datum[3]
+    body = datum[4:]
+
+    assert total_len == len(datum)
+    assert password_len == len(password.encode("utf-8"))
+
+    recovered_password = body[:password_len]
+    recovered_ssid = body[password_len : password_len + len(ssid.encode("utf-8"))]
+    recovered_bssid = body[password_len + len(ssid.encode("utf-8")) :]
+
+    assert recovered_password == password.encode("utf-8")
+    assert recovered_ssid == ssid.encode("utf-8")
+    assert ssid_crc == crc8(recovered_ssid)
+    assert bssid_crc == crc8(recovered_bssid)
+    assert recovered_bssid == bytes.fromhex(bssid)
