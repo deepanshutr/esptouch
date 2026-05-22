@@ -108,3 +108,14 @@ def test_datum_header_round_trips() -> None:
     assert ssid_crc == crc8(recovered_ssid)
     assert bssid_crc == crc8(recovered_bssid)
     assert recovered_bssid == bytes.fromhex(bssid)
+
+
+def test_encode_long_credentials_stay_under_mtu() -> None:
+    """Long SSID + password must not produce datagrams that IP-fragment.
+
+    A 63-char WPA2 password is valid; every encoded packet length must
+    stay well under the 1500-byte Ethernet MTU or ESP-TOUCH (which
+    decodes frame lengths) cannot recover the data.
+    """
+    pkts = encode_packets("X" * 32, "Y" * 63, "aabbccddeeff", "192.168.1.42")
+    assert max(pkts) < 1400, f"oversized packet length: {max(pkts)}"

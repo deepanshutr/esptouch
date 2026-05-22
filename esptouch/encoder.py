@@ -68,6 +68,14 @@ class DataCode:
         Packets 0..1 frame the sequence/index, 2..3 carry the high
         nibble of the value, 4..5 carry the low nibble. `sequence_header`
         is a small rolling counter the device uses to order datum groups.
+
+        Packets 2 and 4 pair the datum index with the respective nibble
+        via crc8, keeping every length bounded to at most
+        ``_EXTRA_LEN + _DATA_CODE_BASE + 255 = 551`` — well under the
+        1500-byte Ethernet MTU. The previous ``self.index << 4 | nibble``
+        formulation reached 2328 for high indices (>= 127), causing
+        IP fragmentation that the ESP-TOUCH frame-length decoder cannot
+        recover from.
         """
         high = (self.value >> 4) & 0x0F
         low = self.value & 0x0F
@@ -76,9 +84,9 @@ class DataCode:
         return [
             _EXTRA_LEN + seq,
             _EXTRA_LEN + idx,
-            _EXTRA_LEN + _DATA_CODE_BASE + (self.index << 4 | high),
+            _EXTRA_LEN + _DATA_CODE_BASE + crc8(bytes([self.index, high])),
             _EXTRA_LEN + _DATA_CODE_BASE + high,
-            _EXTRA_LEN + _DATA_CODE_BASE + (self.index << 4 | low),
+            _EXTRA_LEN + _DATA_CODE_BASE + crc8(bytes([self.index, low])),
             _EXTRA_LEN + _DATA_CODE_BASE + low,
         ]
 
