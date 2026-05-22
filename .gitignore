@@ -29,3 +29,4 @@ secrets.env
 # Misc
 *.log
 .python-version
+uv.lock
